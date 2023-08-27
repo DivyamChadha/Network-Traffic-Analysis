@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Network Traffic Visualizer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+<h1>Network Topology Analysis</h1>
+
+<a href="index.html">Home</a> <br/><br/><br/>
+
+<!-- SVG container for the graph -->
+<div style="overflow: auto;">
+  <svg id="my_graph" width="5000" height="3000" viewBox="0 0 5000 3000" preserveAspectRatio="xMinYMin meet">
+    <g id="container"></g>
+  </svg>
+</div>
+
+<script>
+const base_url = 'http://127.0.0.1:5000/';
+
+function getTopologyData() {
+  let url = base_url+'network_graph';
+
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+
+      const svg = d3.select("#my_graph");
+      const container = svg.select("#container");  // We use the existing "container" group
+
+      container.selectAll("*").remove();  // Clear the container
+
+      // Create force layout
+      const simulation = d3.forceSimulation(data.nodes)
+          .force("link", d3.forceLink(data.links).id(d => d.id).distance(200))
+          .force("charge", d3.forceManyBody().strength(-750))
+          .force("center", d3.forceCenter(250, 150));
+
+      const zoom = d3.zoom()
+        .on("zoom", (event) => {
+          container.attr("transform", event.transform);
+        });
+
+      svg.call(zoom);
+
+      // Create links and nodes inside "container"
+      const link = container.append("g")
+          .selectAll("line")
+          .data(data.links)
+          .enter()
+          .append("line")
+          .attr("stroke", "#999")
+          .attr("stroke-width", 2);
+
+      const node = container.append("g")
+          .selectAll("circle")
+          .data(data.nodes)
+          .enter()
+          .append("circle")
+          .attr("r", 5)
+          .attr("fill", "#69b3a2")
+          .call(d3.drag()
+              .on("start", dragstart)
+              .on("drag", dragged)
+              .on("end", dragend));
+
+      // Node labels
+      const labels = container.append("g")
+          .selectAll("text")
+          .data(data.nodes)
+          .enter()
+          .append("text")
+          .text(d => d.id)
+          .attr("x", 6)
+          .attr("y", 3);
+
+      // Update positions on tick
+      simulation.on("tick", () => {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node
+            .attr("cx", d => d.x)
+            .attr("cy", d => d.y);
+
+        labels
+            .attr("x", d => d.x)
+            .attr("y", d => d.y);
+      });
+
+      function dragstart(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+
+      function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+      }
+
+      function dragend(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }
+    });
+}
+
+window.addEventListener('load', getTopologyData);
+
+</script>
+
+</body>
+</html>

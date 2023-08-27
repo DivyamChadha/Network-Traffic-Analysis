@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Network Traffic Visualizer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+<h1>Volume Analysis</h1>
+
+<a href="index.html">Home</a> <br/><br/><br/>
+
+<select id="layerDropdown">
+  <!-- Options will be filled dynamically -->
+</select>
+
+<input type="date" id="beforeDate" placeholder="Before Date">
+<input type="date" id="afterDate" placeholder="After Date">
+<input type="number" id="limit" placeholder="Limit">
+<br/>
+
+<!-- SVG container for the graph -->
+<svg id="my_graph" width="500" height="300"></svg>
+
+<script>
+const base_url = 'http://127.0.0.1:5000/';
+
+function populateDropdown() {
+  fetch(base_url+'distinct_layers')
+    .then(response => response.json())
+    .then(data => {
+      const dropdown = document.getElementById('layerDropdown');
+      const defaultOption = document.createElement('option');
+      defaultOption.text = 'None';
+      defaultOption.value = '';
+      dropdown.add(defaultOption);
+      data.forEach(layer => {
+        const option = document.createElement('option');
+        option.text = layer;
+        option.value = layer;
+        dropdown.add(option);
+      });
+    });
+}
+
+function getPackets() {
+  const layer = document.getElementById('layerDropdown').value;
+  const beforeDate = document.getElementById('beforeDate').value;
+  const afterDate = document.getElementById('afterDate').value;
+  const limit = document.getElementById('limit').value;
+  
+  let url = base_url+'packets?';
+  if (layer) url += `layer=${layer}&`;
+  if (beforeDate) url += `before_date=${beforeDate}&`;
+  if (afterDate) url += `after_date=${afterDate}&`;
+  if (limit) url += `limit=${limit}&`;
+
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      const svg = d3.select("#my_graph");
+      svg.selectAll("*").remove();
+
+      // Convert aggregated time components into JavaScript Date objects
+      const processedData = data.map(d => {
+        return {
+          timestamp: new Date(d._id.year, d._id.month-1, d._id.day, d._id.hour, d._id.minute),
+          count: d.count
+        };
+      });
+
+      const xScale = d3.scaleTime()
+        .domain([d3.min(processedData, d => d.timestamp), d3.max(processedData, d => d.timestamp)])
+        .range([0, 500]);
+
+      const yScale = d3.scaleLinear()
+        .domain([0, d3.max(processedData, d => d.count)])
+        .range([300, 0]);
+
+      const xAxis = d3.axisBottom(xScale);
+      svg.append("g")
+        .attr("transform", "translate(0,300)")
+        .call(xAxis);
+
+      const yAxis = d3.axisLeft(yScale);
+      svg.append("g")
+        .attr("transform", "translate(0,0)")
+        .call(yAxis);
+
+      const area = d3.area()
+        .x(d => xScale(d.timestamp))
+        .y0(300)
+        .y1(d => yScale(d.count));
+
+      svg.append("path")
+        .datum(processedData)
+        .attr("fill", "blue")
+        .attr("d", area);
+    });
+}
+
+window.addEventListener('load', populateDropdown);
+window.addEventListener('load', getPackets);
+
+document.getElementById("layerDropdown").addEventListener("change", getPackets);
+document.getElementById("beforeDate").addEventListener("change", getPackets);
+document.getElementById("afterDate").addEventListener("change", getPackets);
+document.getElementById("limit").addEventListener("change", getPackets);
+
+// Set an interval to call getPackets every second (1000 milliseconds)
+const intervalId = setInterval(getPackets, 1000);
+
+
+</script>
+
+</body>
+</html>

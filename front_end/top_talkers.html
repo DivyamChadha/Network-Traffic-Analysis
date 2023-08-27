@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Network Traffic Visualizer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+<h1>Top Talkers Analysis</h1>
+
+<a href="index.html">Home</a> <br/><br/><br/>
+
+<select id="layerDropdown">
+  <!-- Options will be filled dynamically -->
+</select>
+
+<input type="date" id="beforeDate" placeholder="Before Date">
+<input type="date" id="afterDate" placeholder="After Date">
+<input type="number" id="limit" placeholder="Limit" value=10>
+<br/>
+
+<!-- SVG container for the graph -->
+<svg id="my_graph" width="5000" height="4000"></svg>
+
+<script>
+const base_url = 'http://127.0.0.1:5000/';
+
+function populateDropdown() {
+  fetch(base_url+'distinct_layers')
+    .then(response => response.json())
+    .then(data => {
+      const dropdown = document.getElementById('layerDropdown');
+      const defaultOption = document.createElement('option');
+      defaultOption.text = 'None';
+      defaultOption.value = '';
+      dropdown.add(defaultOption);
+      data.forEach(layer => {
+        const option = document.createElement('option');
+        option.text = layer;
+        option.value = layer;
+        dropdown.add(option);
+      });
+    });
+}
+
+function getTopTalkers() {
+  const layer = document.getElementById('layerDropdown').value;
+  const beforeDate = document.getElementById('beforeDate').value;
+  const afterDate = document.getElementById('afterDate').value;
+  const limit = document.getElementById('limit').value;
+  
+  let url = base_url+'top_talkers?';
+  if (layer) url += `layer=${layer}&`;
+  if (beforeDate) url += `before_date=${beforeDate}&`;
+  if (afterDate) url += `after_date=${afterDate}&`;
+  if (limit) url += `limit=${limit}&`;
+
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      const svg = d3.select("#my_graph");
+      svg.selectAll("*").remove();
+
+      // Bar graph setup
+      const xScale = d3.scaleBand()
+          .domain(data.map(d => d.name))  // Using "name" as the x-axis labels
+          .range([0, 500])
+          .padding(0.2);
+        
+      const yScale = d3.scaleLinear()
+          .domain([0, d3.max(data, d => d.value)])  // Using "value" for y-axis range
+          .range([300, 0]);
+
+      // Draw bars
+      svg.selectAll("rect")
+          .data(data)
+          .enter()
+          .append("rect")
+          .attr("x", d => xScale(d.name))  // Using "name" for x-axis positioning
+          .attr("y", d => yScale(d.value))  // Using "value" for y-axis positioning
+          .attr("width", xScale.bandwidth())
+          .attr("height", d => 300 - yScale(d.value))
+          .attr("fill", "blue");
+
+      const xAxis = d3.axisBottom(xScale);
+
+      svg.append("g")
+          .attr("transform", `translate(0, ${300})`)
+          .call(xAxis)
+          .selectAll("text")
+          .style("text-anchor", "end")
+          .attr("dx", "-.8em")
+          .attr("dy", ".15em")
+          .attr("transform", "rotate(-90)");
+
+      const yAxis = d3.axisLeft(yScale);
+      svg.append("g").call(yAxis);
+
+
+    });
+}
+
+window.addEventListener('load', populateDropdown);
+window.addEventListener('load', getTopTalkers);
+
+document.getElementById("layerDropdown").addEventListener("change", getTopTalkers);
+document.getElementById("beforeDate").addEventListener("change", getTopTalkers);
+document.getElementById("afterDate").addEventListener("change", getTopTalkers);
+document.getElementById("limit").addEventListener("change", getTopTalkers);
+
+// Set an interval to call getTopTalkers every 15 seconds (15000 milliseconds)
+const intervalId = setInterval(getTopTalkers, 15000);
+
+
+</script>
+
+</body>
+</html>

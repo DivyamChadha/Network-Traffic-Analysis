@@ -1,0 +1,12 @@
+.venv/
+*.sh
+.DS_Store
+__pycache__/
+
+# Removing Docker files since running this application inside docker currently doesnt work
+# By default no network traffic flows to the docker container
+Dockerfile
+docker-compose.yml
+
+# Debug output file
+temp.txt
