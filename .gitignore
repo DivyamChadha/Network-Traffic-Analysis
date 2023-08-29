@@ -2,6 +2,7 @@
 *.sh
 .DS_Store
 __pycache__/
+conf.ini
 
 # Removing Docker files since running this application inside docker currently doesnt work
 # By default no network traffic flows to the docker container
